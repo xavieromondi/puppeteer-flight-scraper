@@ -1,9 +1,9 @@
 const express = require("express");
 const puppeteer = require("puppeteer-extra");
-const realPuppeteer = require("puppeteer");
-puppeteer.puppeteer = realPuppeteer;
-const cors = require("cors");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+const cors = require("cors");
+
+puppeteer.use(StealthPlugin());
 
 const app = express();
 app.use(cors());
@@ -21,10 +21,15 @@ app.get("/scrape", async (req, res) => {
   const url = `https://www.kiwi.com/en/search/results/${from}/${to}/${date}/no-return`;
   console.log(`🛫 Scraping URL: ${url}`);
 
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-
+  let browser;
   try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     );
@@ -118,15 +123,9 @@ app.get("/scrape", async (req, res) => {
     await browser.close();
     res.json(results);
   } catch (error) {
-    const errorHtml = await page.content();
-    await browser.close();
+    if (browser) await browser.close();
     console.error("❌ Scraping failed:", error.message);
-    res.status(500).send(`
-      <h2>❌ Scraping failed</h2>
-      <p>${error.message}</p>
-      <hr/>
-      ${errorHtml}
-    `);
+    res.status(500).send(`<h2>❌ Scraping failed</h2><p>${error.message}</p>`);
   }
 });
 

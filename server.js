@@ -2,6 +2,7 @@ const express = require("express");
 const puppeteer = require("puppeteer-extra");
 const cors = require("cors");
 const fs = require("fs");
+const path = require("path");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 
 puppeteer.use(StealthPlugin());
@@ -24,7 +25,6 @@ app.get("/scrape", async (req, res) => {
 
   const browser = await puppeteer.launch({
     headless: true,
-    // ✅ FIX: Don't add --no-sandbox for Render
   });
 
   const page = await browser.newPage();
@@ -133,6 +133,16 @@ app.get("/scrape", async (req, res) => {
     await browser.close();
     console.error("❌ Scraping failed:", error.message);
     res.status(500).json({ error: "Scraping failed", message: error.message });
+  }
+});
+
+// ✅ NEW DEBUG ENDPOINT
+app.get("/debug", (req, res) => {
+  const filePath = path.join(__dirname, "error.html");
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send("❌ No debug file found.");
   }
 });
 

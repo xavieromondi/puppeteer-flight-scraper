@@ -5,6 +5,7 @@ const fs = require("fs");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 
 puppeteer.use(StealthPlugin());
+
 const app = express();
 app.use(cors());
 
@@ -19,12 +20,11 @@ app.get("/scrape", async (req, res) => {
   } = req.query;
 
   const url = `https://www.kiwi.com/en/search/results/${from}/${to}/${date}/no-return`;
-
   console.log(`🛫 Scraping URL: ${url}`);
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    // ✅ FIX: Don't add --no-sandbox for Render
   });
 
   const page = await browser.newPage();
@@ -107,6 +107,7 @@ app.get("/scrape", async (req, res) => {
           const textBlocks = segmentEl.querySelectorAll(
             ".orbit-stack.items-start .orbit-text"
           );
+
           const airport = clean(textBlocks[0]?.textContent);
           const name = clean(textBlocks[1]?.textContent);
 

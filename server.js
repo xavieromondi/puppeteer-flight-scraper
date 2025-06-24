@@ -8,14 +8,25 @@ puppeteer.use(StealthPlugin());
 const app = express();
 app.use(cors());
 
-const PORT = 8000;
+const PORT = process.env.PORT || 8000;
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 app.get("/scrape", async (req, res) => {
+  const {
+    from = "nairobi-kenya",
+    to = "mombasa-kenya",
+    date = "2025-06-24_2025-07-23",
+  } = req.query;
+
+  const url = `https://www.kiwi.com/en/search/results/${from}/${to}/${date}/no-return`;
+
+  console.log(`🛫 Scraping URL: ${url}`);
+
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
+
   const page = await browser.newPage();
 
   try {
@@ -23,8 +34,6 @@ app.get("/scrape", async (req, res) => {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     );
 
-    const url =
-      "https://www.kiwi.com/en/search/results/nairobi-kenya/mombasa-kenya/2025-06-24_2025-07-23/no-return";
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
     // Accept cookies
@@ -98,7 +107,6 @@ app.get("/scrape", async (req, res) => {
           const textBlocks = segmentEl.querySelectorAll(
             ".orbit-stack.items-start .orbit-text"
           );
-
           const airport = clean(textBlocks[0]?.textContent);
           const name = clean(textBlocks[1]?.textContent);
 
@@ -108,16 +116,10 @@ app.get("/scrape", async (req, res) => {
         const from = getSegmentData(segmentStops[0]);
         const to = getSegmentData(segmentStops[1]);
 
-        return {
-          price,
-          airline,
-          from,
-          to,
-        };
+        return { price, airline, from, to };
       });
 
       results.push(flight);
-
       await page.keyboard.press("Escape");
       await delay(1500);
     }
@@ -129,10 +131,10 @@ app.get("/scrape", async (req, res) => {
     fs.writeFileSync("error.html", await page.content());
     await browser.close();
     console.error("❌ Scraping failed:", error.message);
-    res.status(500).json({ error: "Scraping failed" });
+    res.status(500).json({ error: "Scraping failed", message: error.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });

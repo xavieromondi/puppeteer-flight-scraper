@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: puppeteer-flight-scraper
-    env: node
-    buildCommand: |
-      npm install
-      npx puppeteer browsers install chrome
-    startCommand: npm start

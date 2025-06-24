@@ -1,19 +1,16 @@
 {
   "name": "puppeteer-flight-scraper",
   "version": "1.0.0",
+  "description": "Scrapes Kiwi.com for flight listings using Puppeteer Extra with Stealth plugin",
   "main": "server.js",
   "scripts": {
-    "postinstall": "PUPPETEER_CACHE_DIR=.cache puppeteer browsers install chrome",
     "start": "node server.js"
   },
-  "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "puppeteer": "^24.10.2",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   }

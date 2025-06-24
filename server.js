@@ -2,6 +2,7 @@ const express = require("express");
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const cors = require("cors");
+const fs = require("fs");
 
 puppeteer.use(StealthPlugin());
 
@@ -24,7 +25,7 @@ app.get("/scrape", async (req, res) => {
   let browser;
   try {
     browser = await puppeteer.launch({
-      headless: true,
+      headless: "new", // ✅ More reliable in modern headless environments like Render
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
@@ -35,8 +36,9 @@ app.get("/scrape", async (req, res) => {
     );
 
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-
     await delay(2000);
+
+    // ✅ Accept cookies
     await page.evaluate(() => {
       const acceptBtn = Array.from(document.querySelectorAll("button")).find(
         (btn) => btn.textContent.toLowerCase().includes("accept")
@@ -46,8 +48,13 @@ app.get("/scrape", async (req, res) => {
     console.log("✅ Cookie consent accepted");
     await delay(3000);
 
+    // ✅ Helpful logs
+    console.log("📄 Page title:", await page.title());
+    console.log("🔗 Final URL:", page.url());
+    await page.screenshot({ path: "pre-selector.png", fullPage: true });
+
     await page.waitForSelector('[data-test="ResultCardWrapper"]', {
-      timeout: 20000,
+      timeout: 40000, // ✅ Increased timeout
     });
 
     const cards = await page.$$('[data-test="ResultCardWrapper"]');

@@ -1,9 +1,9 @@
 const express = require("express");
 const puppeteer = require("puppeteer-extra");
+const realPuppeteer = require("puppeteer");
+puppeteer.puppeteer = realPuppeteer;
 const cors = require("cors");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
-
-puppeteer.use(StealthPlugin());
 
 const app = express();
 app.use(cors());

@@ -1,8 +1,6 @@
 const express = require("express");
 const puppeteer = require("puppeteer-extra");
 const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 
 puppeteer.use(StealthPlugin());
@@ -23,10 +21,7 @@ app.get("/scrape", async (req, res) => {
   const url = `https://www.kiwi.com/en/search/results/${from}/${to}/${date}/no-return`;
   console.log(`🛫 Scraping URL: ${url}`);
 
-  const browser = await puppeteer.launch({
-    headless: true,
-  });
-
+  const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
   try {
@@ -36,7 +31,6 @@ app.get("/scrape", async (req, res) => {
 
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    // Accept cookies
     await delay(2000);
     await page.evaluate(() => {
       const acceptBtn = Array.from(document.querySelectorAll("button")).find(
@@ -74,10 +68,6 @@ app.get("/scrape", async (req, res) => {
         await page.waitForSelector(modalSelector, { timeout: 10000 });
       } catch {
         console.warn("❌ Trip modal not found");
-        await page.screenshot({
-          path: `modal-missing-${i}.png`,
-          fullPage: true,
-        });
         continue;
       }
 
@@ -128,21 +118,15 @@ app.get("/scrape", async (req, res) => {
     await browser.close();
     res.json(results);
   } catch (error) {
-    await page.screenshot({ path: "error.png", fullPage: true });
-    fs.writeFileSync("error.html", await page.content());
+    const errorHtml = await page.content();
     await browser.close();
     console.error("❌ Scraping failed:", error.message);
-    res.status(500).json({ error: "Scraping failed", message: error.message });
-  }
-});
-
-// ✅ NEW DEBUG ENDPOINT
-app.get("/debug", (req, res) => {
-  const filePath = path.join(__dirname, "error.html");
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.status(404).send("❌ No debug file found.");
+    res.status(500).send(`
+      <h2>❌ Scraping failed</h2>
+      <p>${error.message}</p>
+      <hr/>
+      ${errorHtml}
+    `);
   }
 });
 

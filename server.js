@@ -2,7 +2,6 @@ const express = require("express");
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const cors = require("cors");
-const fs = require("fs");
 
 puppeteer.use(StealthPlugin());
 
@@ -14,31 +13,31 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 app.get("/scrape", async (req, res) => {
   const {
-    from = "nairobi-kenya",
-    to = "mombasa-kenya",
-    date = "2025-06-24_2025-07-23",
+    from = "Nairobi",
+    to = "Mombasa",
+    dateFrom = "2025-06-24",
+    dateTo = "2025-07-23",
   } = req.query;
 
-  const url = `https://www.kiwi.com/en/search/results/${from}/${to}/${date}/no-return`;
-  console.log(`🛫 Scraping URL: ${url}`);
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
 
-  let browser;
+  const page = await browser.newPage();
   try {
-    browser = await puppeteer.launch({
-      headless: "new", // ✅ More reliable in modern headless environments like Render
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const page = await browser.newPage();
-
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     );
 
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-    await delay(2000);
+    await page.goto("https://www.kiwi.com/en", {
+      waitUntil: "networkidle2",
+      timeout: 60000,
+    });
 
-    // ✅ Accept cookies
+    await delay(3000);
+
+    // Accept cookies
     await page.evaluate(() => {
       const acceptBtn = Array.from(document.querySelectorAll("button")).find(
         (btn) => btn.textContent.toLowerCase().includes("accept")
@@ -46,15 +45,73 @@ app.get("/scrape", async (req, res) => {
       if (acceptBtn) acceptBtn.click();
     });
     console.log("✅ Cookie consent accepted");
-    await delay(3000);
+    await delay(2000);
 
-    // ✅ Helpful logs
-    console.log("📄 Page title:", await page.title());
-    console.log("🔗 Final URL:", page.url());
-    await page.screenshot({ path: "pre-selector.png", fullPage: true });
+    // Fill origin
+    await page.click('[data-test="PlacePickerInput-origin"]');
+    await delay(500);
+    await page.type('[data-test="PlacePickerInput-origin"] input', from);
+    await delay(2000);
+    await page.keyboard.press("Enter");
+
+    // Fill destination
+    await page.click('[data-test="PlacePickerInput-destination"]');
+    await delay(500);
+    await page.type('[data-test="PlacePickerInput-destination"] input', to);
+    await delay(2000);
+    await page.keyboard.press("Enter");
+
+    // Select dates
+    await page.click('[data-test="SearchFormDateInput"]');
+    await delay(1000);
+    await page.evaluate(
+      (from, to) => {
+        const format = (d) => {
+          const [y, m, day] = d.split("-");
+          return `${parseInt(day)} ${
+            [
+              "Jan",
+              "Feb",
+              "Mar",
+              "Apr",
+              "May",
+              "Jun",
+              "Jul",
+              "Aug",
+              "Sep",
+              "Oct",
+              "Nov",
+              "Dec",
+            ][parseInt(m) - 1]
+          } ${y}`;
+        };
+        const fromFormatted = format(from);
+        const toFormatted = format(to);
+        const days = Array.from(
+          document.querySelectorAll("div[role='gridcell']")
+        );
+        days.forEach((el) => {
+          if (
+            el.getAttribute("aria-label") === fromFormatted ||
+            el.getAttribute("aria-label") === toFormatted
+          ) {
+            el.click();
+          }
+        });
+      },
+      dateFrom,
+      dateTo
+    );
+
+    await delay(1500);
+
+    // Click search button
+    await page.click('[data-test="LandingSearchButton"]');
+    console.log("🔍 Search triggered...");
+    await delay(5000);
 
     await page.waitForSelector('[data-test="ResultCardWrapper"]', {
-      timeout: 40000, // ✅ Increased timeout
+      timeout: 40000,
     });
 
     const cards = await page.$$('[data-test="ResultCardWrapper"]');
@@ -85,7 +142,6 @@ app.get("/scrape", async (req, res) => {
 
       const flight = await page.evaluate(() => {
         const clean = (s) => s?.replace(/\u200E/g, "").trim() || "N/A";
-
         const price = clean(
           document.querySelector('[data-test="ResultCardPrice"] span')
             ?.textContent
@@ -93,7 +149,6 @@ app.get("/scrape", async (req, res) => {
         const airline = clean(
           document.querySelector(".orbit-badge .ms-400")?.textContent
         );
-
         const segmentStops = Array.from(
           document.querySelectorAll('[data-test="SegmentStop"]')
         );
@@ -105,14 +160,11 @@ app.get("/scrape", async (req, res) => {
           const match = raw.match(/^(\d{2}:\d{2})(.*)$/);
           const time = match ? match[1] : "N/A";
           const date = match ? match[2].trim() : "N/A";
-
           const textBlocks = segmentEl.querySelectorAll(
             ".orbit-stack.items-start .orbit-text"
           );
-
           const airport = clean(textBlocks[0]?.textContent);
           const name = clean(textBlocks[1]?.textContent);
-
           return { time, date, airport, name };
         };
 
@@ -130,7 +182,7 @@ app.get("/scrape", async (req, res) => {
     await browser.close();
     res.json(results);
   } catch (error) {
-    if (browser) await browser.close();
+    await browser.close();
     console.error("❌ Scraping failed:", error.message);
     res.status(500).send(`<h2>❌ Scraping failed</h2><p>${error.message}</p>`);
   }

@@ -25,8 +25,14 @@ app.get("/scrape", async (req, res) => {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     );
 
-    const url =
-      "https://www.kiwi.com/en/search/results/nairobi-kenya/mombasa-kenya/2025-06-24_2025-07-23/no-return";
+    // 🟡 Read query parameters from frontend
+    const {
+      from = "nairobi-kenya",
+      to = "mombasa-kenya",
+      date = "2025-06-24_2025-07-23",
+    } = req.query;
+
+    const url = `https://www.kiwi.com/en/search/results/${from}/${to}/${date}/no-return`;
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
     // Accept cookies
@@ -99,8 +105,8 @@ app.get("/scrape", async (req, res) => {
             ".orbit-stack.items-start .orbit-text"
           );
 
-          const airport = clean(textBlocks[0]?.textContent); // e.g. "Nairobi ∙ NBO"
-          const name = clean(textBlocks[1]?.textContent); // e.g. "Jomo Kenyatta International"
+          const airport = clean(textBlocks[0]?.textContent);
+          const name = clean(textBlocks[1]?.textContent);
 
           return { time, date, airport, name };
         };
